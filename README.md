@@ -123,6 +123,34 @@ niente delisted (per il backtest storico serve un dataset point-in-time).
 L'upgrade a EODHD/Tiingo passa dagli stub documentati **dopo** la verifica
 scritta della licenza — vedi [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md).
 
+## Esecuzione 24/7 gratuita sul proprio Mac
+
+Non serve un VPS: lo stack Docker può girare sul Mac in permanenza, a costo
+zero. I container hanno `restart: unless-stopped`, quindi ripartono da soli
+dopo un riavvio. In modalità live è attivo un **catch-up**: all'avvio e ogni
+30 minuti il sistema verifica quali job del giorno non sono stati completati e
+li recupera in ordine — così anche se il Mac era in sospensione all'orario
+previsto, al risveglio si mette in pari (i job sono idempotenti).
+
+Perché sia davvero continuo:
+
+1. **Docker Desktop all'avvio** — Impostazioni → General → «Start Docker
+   Desktop when you sign in».
+2. **Impedire la sospensione di sistema** (il display può spegnersi, il Mac no)
+   quando è alimentato:
+   ```bash
+   sudo pmset -c sleep 0        # su alimentatore: niente sospensione di sistema
+   ```
+   Con il portatile a coperchio chiuso serve un monitor esterno o `caffeinate`;
+   in alternativa tieni il coperchio aperto. Per una singola sessione lunga:
+   `caffeinate -s` (mantiene sveglio finché è in esecuzione).
+3. Limite onesto: se il Mac resta **spento** oltre un'intera giornata, quel
+   giorno la lista non viene prodotta; alla riaccensione l'ingestione recupera
+   comunque le barre mancanti (fetch degli ultimi giorni) e il ranking riparte.
+   Il primo caricamento storico (`backfill_history`) resta manuale una tantum.
+
+Il salto verso un VPS conviene solo quando vuoi che giri **anche a Mac spento**.
+
 ## Deploy su VPS europeo
 
 Vedi [ARCHITECTURE.md](ARCHITECTURE.md) e [SECURITY.md](SECURITY.md). In sintesi:

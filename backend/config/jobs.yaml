@@ -15,6 +15,7 @@ jobs:
   daily_report:          { hour: 16, minute: 45, enabled: true,  description: "Ricostruzione narrativa, controtesi, report leggibile" }
   retrospective_review:  { hour: 17, minute: 15, enabled: true,  description: "Aggiornamento retrospective outcomes 1/3/5/10/20 sedute" }
   freeze_and_backup:     { hour: 18, minute: 0,  enabled: true,  description: "Freeze della versione giornaliera e snapshot Parquet" }
+  validation_report:     { hour: 12, minute: 0,  enabled: true,  day_of_week: "sat", description: "Auto-valutazione settimanale: precision@5/@10 vs baseline, drift alert" }
 
 notifications:
   # Notifica SOLO su cambiamenti materiali. Mai per semplici duplicati.

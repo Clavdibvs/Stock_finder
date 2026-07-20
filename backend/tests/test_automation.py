@@ -151,3 +151,56 @@ class TestValidationReport:
         q = demo_client.get("/api/quality").json()
         assert q["validation"] is not None
         assert "latest" in q["validation"]
+
+
+class TestCatchUp:
+    """Il recupero dei job non completati (resilienza al sonno del Mac)."""
+
+    def _now_et(self, hour, weekday=2):
+        # un mercoledì (weekday=2) all'ora ET indicata
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        base = datetime(2026, 7, 15, hour, 30, tzinfo=ZoneInfo("America/New_York"))
+        # 2026-07-15 è mercoledì
+        assert base.weekday() == weekday
+        return base
+
+    def test_due_includes_past_and_undone(self, db):
+        from app.jobs.scheduler import due_jobs
+        from app.seed.demo import last_business_day
+        # alle 17:00 ET tutti i job giornalieri (ingest 05:45 ... daily_report 16:45)
+        # sono passati; validation_report è settimanale (sab) -> escluso di mercoledì
+        pending = due_jobs(db, self._now_et(17), last_business_day())
+        assert "ingest_eod" in pending
+        assert "ranking_eod" in pending
+        assert "validation_report" not in pending  # solo il sabato
+
+    def test_future_time_not_due(self, db):
+        from app.jobs.scheduler import due_jobs
+        from app.seed.demo import last_business_day
+        # alle 06:00 ET solo universe_sync (05:30) e ingest_eod (05:45) sono passati
+        pending = due_jobs(db, self._now_et(6), last_business_day())
+        assert "universe_sync" in pending
+        assert "ranking_eod" not in pending  # 16:15, ancora futuro
+
+    def test_succeeded_job_excluded(self, db):
+        from app.jobs.scheduler import due_jobs
+        from app.models import IngestionRun
+        from app.seed.demo import last_business_day
+        key_date = last_business_day()
+        db.add(IngestionRun(job_name="ranking_eod", status="success",
+                            idempotency_key=f"ranking_eod:{key_date.isoformat()}"))
+        db.flush()
+        pending = due_jobs(db, self._now_et(17), key_date)
+        assert "ranking_eod" not in pending  # già completato oggi
+        assert "ingest_eod" in pending        # questo no
+
+    def test_weekly_job_due_on_saturday(self, db):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from app.jobs.scheduler import due_jobs
+        from app.seed.demo import last_business_day
+        sat = datetime(2026, 7, 18, 13, 0, tzinfo=ZoneInfo("America/New_York"))
+        assert sat.weekday() == 5
+        pending = due_jobs(db, sat, last_business_day())
+        assert "validation_report" in pending  # sabato dopo le 12:00 ET

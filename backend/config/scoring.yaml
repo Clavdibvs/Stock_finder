@@ -1,0 +1,69 @@
+# Pesi e parametri del Risk Index — versionati.
+# Ogni modifica DEVE incrementare `version`: la versione viene salvata su ogni
+# risk_score e concorre all'hash di configurazione dell'audit trail.
+version: "1.0.0"
+
+# Pesi dei componenti (devono sommare a 1.0).
+# R rally extremity, V volume/turnover, A attenzione, C fragilità catalizzatore,
+# D diluizione, F mismatch fondamentale, B dipendenza da evento binario.
+weights:
+  R: 0.20
+  V: 0.15
+  A: 0.10
+  C: 0.20
+  D: 0.15
+  F: 0.10
+  B: 0.10
+
+# Gestione componenti mancanti: i pesi vengono rinormalizzati sui componenti
+# disponibili (un dato mancante NON vale zero). Se i componenti mancanti
+# superano `max_missing_components`, scatta il gate DATI INSUFFICIENTI.
+max_missing_components: 3
+
+# Componenti critici: se mancano, la confidence scende di un grado ciascuno.
+critical_components: [R, V, C]
+
+# Soglie operative provvisorie (sezione E.6 della ricerca; da pre-registrare
+# e contestare in validazione, non risultati statistici finali).
+thresholds:
+  elevated: 70      # >=70 e confidence A/B e nessun gate -> RISCHIO DI CORREZIONE ELEVATO
+  monitor: 55       # 55-69 -> MONITORARE
+  # <55 -> non mostrato nella lista primaria
+
+# Gate — parametri.
+gates:
+  binary_event:
+    # tipi di evento che attivano il gate se imminenti/pendenti e dominanti
+    event_types: [fda_decision_pending, clinical_readout_pending, ma_rumor, ma_confirmed, court_ruling_pending]
+    # B >= questa soglia con evento binario pendente attiva comunque il gate
+    b_component_min: 70
+  squeeze:
+    hazard_min: 60          # Squeeze Hazard >= 60 -> gate
+    unknown_blocks: false   # squeeze sconosciuto non blocca, ma viene mostrato come "sconosciuto"
+  unquantifiable:
+    min_price: 1.0                  # sotto $1 -> RISCHIO NON QUANTIFICABILE
+    min_median_dollar_volume: 1000000   # median $ volume 20g < 1M -> illiquido
+    execution_hazard_min: 80        # execution hazard estremo -> non quantificabile
+  insufficient_data:
+    max_stale_days: 3       # barre più vecchie di N sedute -> dati insufficienti
+    require_bars: 60        # minimo barre storiche per calcolare le feature
+
+# Squeeze hazard: pesi interni (usati solo se i dati esistono; niente default a 0)
+squeeze:
+  weights:
+    short_interest_pct_float: 0.35
+    days_to_cover: 0.20
+    volume_over_float: 0.20
+    premarket_gap: 0.15
+    halts: 0.10
+  # senza short interest ufficiale lo squeeze hazard è "sconosciuto":
+  # il solo volume/float non basta a quantificarlo (mai improvvisare)
+  required_any: [short_interest_pct_float]
+
+# Execution / liquidity hazard
+execution:
+  weights:
+    spread_proxy: 0.35
+    adv_dollar: 0.35
+    halts: 0.15
+    price_level: 0.15

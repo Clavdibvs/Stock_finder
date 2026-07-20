@@ -1,0 +1,29 @@
+# Routine giornaliera — orari in ET (America/New_York), visualizzazione Europe/Rome.
+# Il monitoraggio continuo NON è previsto: solo job schedulati.
+version: "1.0.0"
+timezone_market: "America/New_York"
+timezone_display: "Europe/Rome"
+
+jobs:
+  universe_sync:         { hour: 5,  minute: 30, enabled: true,  description: "Sincronizzazione universo: anagrafica SEC (CIK, nome, shares outstanding)" }
+  ingest_eod:            { hour: 5,  minute: 45, enabled: true,  description: "Ingestione EOD precedente, corporate actions, filing, FDA, trial, IR, halt" }
+  quality_checks:        { hour: 6,  minute: 30, enabled: true,  description: "Quality checks: barre mancanti, split, ticker change, timestamp anomali" }
+  premarket_snapshot:    { hour: 8,  minute: 30, enabled: true,  description: "Snapshot pre-market ritardato; gap, RVOL, turnover, candidati" }
+  claim_enrichment:      { hour: 8,  minute: 40, enabled: true,  description: "Ricerca e deduplicazione fonti SOLO per i candidati" }
+  ai_extraction:         { hour: 9,  minute: 10, enabled: false, description: "Estrazione AI strutturata (solo se AI abilitata) e applicazione gate" }
+  ranking_eod:           { hour: 16, minute: 15, enabled: true,  description: "Chiusura barre, feature complete, ranking deterministico" }
+  daily_report:          { hour: 16, minute: 45, enabled: true,  description: "Ricostruzione narrativa, controtesi, report leggibile" }
+  retrospective_review:  { hour: 17, minute: 15, enabled: true,  description: "Aggiornamento retrospective outcomes 1/3/5/10/20 sedute" }
+  freeze_and_backup:     { hour: 18, minute: 0,  enabled: true,  description: "Freeze della versione giornaliera e snapshot Parquet" }
+
+notifications:
+  # Notifica SOLO su cambiamenti materiali. Mai per semplici duplicati.
+  new_in_top10: true
+  state_change: true
+  score_delta_min: 15        # variazione Risk Index >= soglia pre-registrata
+  new_primary_source: true
+  dilution_filing: true
+  rumor_resolved: true
+  new_contradiction: true
+  halt: true
+  confidence_cross: true     # passaggio C/D <-> A/B

@@ -1,0 +1,90 @@
+# Drawdown Radar — deploy mono-VPS.
+# Avvio: cp .env.example .env && ./scripts/bootstrap.sh && docker compose up -d
+# Solo il servizio `web` (Caddy) espone porte: db e api restano sulla rete interna.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DDR_DB_NAME:-ddr}
+      POSTGRES_USER: ${DDR_DB_USER:-ddr}
+      POSTGRES_PASSWORD: ${DDR_DB_PASSWORD:?impostare DDR_DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DDR_DB_USER:-ddr} -d ${DDR_DB_NAME:-ddr}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DDR_DATABASE_URL: postgresql+psycopg://${DDR_DB_USER:-ddr}:${DDR_DB_PASSWORD}@db:5432/${DDR_DB_NAME:-ddr}
+      DDR_APP_MODE: ${DDR_APP_MODE:-demo}
+      DDR_ADMIN_USERNAME: ${DDR_ADMIN_USERNAME:-admin}
+      DDR_ADMIN_PASSWORD: ${DDR_ADMIN_PASSWORD:?impostare DDR_ADMIN_PASSWORD in .env}
+      DDR_SESSION_SECRET: ${DDR_SESSION_SECRET:?impostare DDR_SESSION_SECRET in .env}
+      DDR_AUTH_DISABLED: ${DDR_AUTH_DISABLED:-false}
+      DDR_COOKIE_SECURE: ${DDR_COOKIE_SECURE:-true}
+      DDR_MARKET_DATA_PROVIDER: ${DDR_MARKET_DATA_PROVIDER:-demo}
+      DDR_MARKET_DATA_API_KEY: ${DDR_MARKET_DATA_API_KEY:-}
+      DDR_ALPACA_KEY_ID: ${DDR_ALPACA_KEY_ID:-}
+      DDR_ALPACA_SECRET_KEY: ${DDR_ALPACA_SECRET_KEY:-}
+      DDR_SEC_EDGAR_ENABLED: ${DDR_SEC_EDGAR_ENABLED:-false}
+      DDR_SEC_USER_AGENT: ${DDR_SEC_USER_AGENT:-}
+      DDR_NASDAQ_HALTS_ENABLED: ${DDR_NASDAQ_HALTS_ENABLED:-false}
+      DDR_UNIVERSE_MODE: ${DDR_UNIVERSE_MODE:-explicit}
+      DDR_UNIVERSE_TICKERS: ${DDR_UNIVERSE_TICKERS:-}
+      DDR_CRYPTO_ENABLED: ${DDR_CRYPTO_ENABLED:-false}
+      DDR_DISCOVER_BACKFILL_DAYS: ${DDR_DISCOVER_BACKFILL_DAYS:-130}
+      DDR_NEWS_DISCOVERY_PROVIDER: ${DDR_NEWS_DISCOVERY_PROVIDER:-}
+      DDR_NEWS_DISCOVERY_API_KEY: ${DDR_NEWS_DISCOVERY_API_KEY:-}
+      DDR_BENCHMARK_TICKER: ${DDR_BENCHMARK_TICKER:-IWM}
+      DDR_BACKFILL_DAYS: ${DDR_BACKFILL_DAYS:-400}
+      DDR_OPENFDA_API_KEY: ${DDR_OPENFDA_API_KEY:-}
+      DDR_AI_ENABLED: ${DDR_AI_ENABLED:-false}
+      DDR_AI_PROVIDER: ${DDR_AI_PROVIDER:-disabled}
+      DDR_AI_API_KEY: ${DDR_AI_API_KEY:-}
+      DDR_AI_MODEL: ${DDR_AI_MODEL:-claude-sonnet-5}
+      DDR_AI_MONTHLY_BUDGET_EUR: ${DDR_AI_MONTHLY_BUDGET_EUR:-20}
+      DDR_NOTIFY_CHANNEL: ${DDR_NOTIFY_CHANNEL:-none}
+      DDR_TELEGRAM_BOT_TOKEN: ${DDR_TELEGRAM_BOT_TOKEN:-}
+      DDR_TELEGRAM_CHAT_ID: ${DDR_TELEGRAM_CHAT_ID:-}
+      DDR_DATA_DIR: /app/data
+    volumes:
+      - apidata:/app/data
+    networks: [internal]
+    # nessuna porta esposta sull'host: si passa SOLO da Caddy
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      DDR_DOMAIN: ${DDR_DOMAIN:-:80}
+    ports:
+      - "${DDR_HTTP_PORT:-80}:80"
+      - "${DDR_HTTPS_PORT:-443}:443"
+    volumes:
+      - caddydata:/data
+      - caddyconfig:/config
+    networks: [internal]
+
+volumes:
+  pgdata:
+  apidata:
+  caddydata:
+  caddyconfig:
+
+networks:
+  internal:
+    driver: bridge

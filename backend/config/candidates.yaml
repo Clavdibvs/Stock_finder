@@ -1,0 +1,34 @@
+# Regole del candidate generator — versionate.
+# Un titolo entra tra i candidati con ALMENO UNA condizione di accelerazione
+# E ALMENO UNA condizione di conferma. Il filtro riduce l'universo, non
+# attribuisce da solo rischio elevato.
+version: "1.0.0"
+
+acceleration:
+  ret_1d_min: 0.15        # rendimento giornaliero o gap >= 15%
+  gap_min: 0.15
+  ret_5d_min: 0.25        # rendimento 5 giorni >= 25%
+  ret_20d_min: 0.50       # rendimento 20 giorni >= 50%
+  robust_z_min: 3.0       # robust-z del rendimento >= 3 (finestra 252g)
+
+confirmation:
+  rvol_min: 2.0           # volume relativo >= 2 (mediana 20 sedute)
+  turnover_pctile_min: 95 # turnover su flottante in percentile >= 95 dell'universo
+  attention_z_min: 3.0    # attenzione robust-z >= 3, quando disponibile
+  material_event: true    # nuovo evento materiale classificato
+
+universe:
+  min_price: 1.0
+  min_market_cap: 50000000
+  max_market_cap: 5000000000
+  min_median_dollar_volume_20d: 1000000
+  # Titoli fuori universo NON vengono ignorati: finiscono nell'universo ombra
+  # con stato RISCHIO NON QUANTIFICABILE / ILLIQUIDO / DATI INSUFFICIENTI.
+
+robust_z:
+  window: 252
+  mad_scale: 1.4826
+  min_history: 60
+
+daily_list:
+  max_items: 20

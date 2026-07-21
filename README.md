@@ -105,11 +105,12 @@ gratuite** (Alpaca free + SEC) e resta estendibile ai provider a pagamento.
 - **Esplicita** — `DDR_UNIVERSE_MODE=explicit`: solo i ticker inseriti in
   Impostazioni → Universo (max 500), con backfill a 400 giorni.
 
-Con `DDR_NEWS_DISCOVERY_PROVIDER=brave` + chiave
-([brave.com/search/api](https://brave.com/search/api/), credito gratuito) i
-candidati vengono arricchiti con metadati news (attenzione, origini
-indipendenti, rumor come claim non confermati). I social (Reddit/X/Stocktwits)
-restano esclusi: i loro ToS non consentono scraping automatico.
+La news discovery è attiva di default via **GDELT** (`DDR_NEWS_DISCOVERY_PROVIDER=gdelt`,
+gratuito, senza chiave): i candidati vengono arricchiti con metadati news
+(attenzione, origini indipendenti, rumor come claim non confermati) e un
+classificatore deterministico rileva M&A/FDA/offering dai titoli. I social
+(Reddit/X/Stocktwits) restano esclusi: i loro ToS non consentono scraping
+automatico.
 
 **Cosa fa ogni giorno in live:** barre EOD (bulk, rettificate), filing EDGAR
 con classificazione deterministica (S-1/S-3/424B → diluizione, 8-K → evento
@@ -122,6 +123,33 @@ confidence massima B, niente short interest → squeeze sempre «sconosciuto»,
 niente delisted (per il backtest storico serve un dataset point-in-time).
 L'upgrade a EODHD/Tiingo passa dagli stub documentati **dopo** la verifica
 scritta della licenza — vedi [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md).
+
+## Insight affidabili senza AI
+
+L'AI layer è **spento di default** e non è necessario. Senza AI il sistema
+resta interamente deterministico e produce insight affidabili perché ogni
+segnale è tracciabile a una regola e a una fonte:
+
+- **Accelerazione** (prezzo, volume, gap, robust-z): calcolo puro sui dati di
+  mercato reali — la base solida di ogni candidato;
+- **Filing SEC** classificati da regole (S-1/S-3/424B → diluizione, 8-K →
+  evento materiale, Form 4/144 → insider): deterministico e auditabile;
+- **Halt Nasdaq**: dal feed ufficiale;
+- **News (GDELT)**: alimentano attenzione, origini indipendenti e
+  deduplicazione, e un **classificatore a parole chiave** rileva M&A / FDA /
+  offering dai titoli — facendo scattare il gate «EVENTO BINARIO — EVITARE»
+  quando ≥2 origini indipendenti riportano il tema. Errore verso la cautela,
+  mai un rumor trasformato in fatto;
+- **Auto-valutazione settimanale**: misura se il ranking batte davvero le
+  baseline, così l'affidabilità è verificata, non presunta.
+
+Cosa richiede l'AI (upgrade opzionale, non necessario): la lettura *fine* del
+contenuto — distinguere «endpoint raggiunto» da «mancato», estrarre importi e
+date esatte dal corpo dei documenti. Senza AI il sistema segnala la
+**presenza** del tema e la sua fragilità; con l'AI ne leggerebbe anche il
+merito. Per un tool di rischio prudente, la versione deterministica è
+volutamente conservativa: preferisce un falso allarme di cautela a un rischio
+mancato.
 
 ## Esecuzione 24/7 gratuita sul proprio Mac
 

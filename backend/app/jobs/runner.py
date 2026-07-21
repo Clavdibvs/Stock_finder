@@ -406,6 +406,16 @@ def _enrich_candidates(db: Session, run, candidates: list[Security]) -> None:
                 ingest_news_for_security(db, sec, listing.ticker)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("News discovery %s: %s", listing.ticker, exc)
+
+    # classificazione DETERMINISTICA degli eventi dalle news (senza AI):
+    # rileva M&A / FDA / offering dai titoli e alza il gate binario di cautela.
+    # Gira su tutti i candidati arricchiti (news già presenti in DB).
+    from app.adapters.news_events import classify_news_events
+    for sec in bounded:
+        try:
+            classify_news_events(db, sec)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Classificazione news %s: %s", sec.id, exc)
     db.flush()
 
 
